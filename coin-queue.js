@@ -1,6 +1,6 @@
 import bs58 from "bs58";
 import { PublicKey, SystemProgram } from "@solana/web3.js";
-import { MAX_U64_LAMPORTS, MIN_POOL_CONTRIBUTION_LAMPORTS, PAYMENT_RECIPIENT_ADDRESS } from "./payment.js";
+import { CREATOR_PROFILE_ADDON_LAMPORTS, FIXED_COIN_REQUEST_PAYMENT_LAMPORTS, MIN_POOL_CONTRIBUTION_LAMPORTS, PAYMENT_RECIPIENT_ADDRESS } from "./payment.js";
 import { normalizeJpegUrl } from "./logo-url.js";
 
 const DECIMAL_OPTIONS = new Set([0, 2, 6, 9]);
@@ -13,6 +13,39 @@ function publicKeyString(value) {
   } catch {
     return "";
   }
+}
+
+function normalizeOptionalHttpsUrl(value, fieldName) {
+  const text = typeof value === "string" ? value.trim() : "";
+  if (!text) return "";
+  if (text.length > 500) throw new Error(`${fieldName} must be 500 characters or fewer.`);
+  let url;
+  try { url = new URL(text); } catch { throw new Error(`${fieldName} must be a valid HTTPS URL.`); }
+  if (url.protocol !== "https:" || !url.hostname || url.username || url.password) {
+    throw new Error(`${fieldName} must be a valid HTTPS URL.`);
+  }
+  return url.toString();
+}
+
+function normalizeCreatorExtras(value) {
+  if (value?.enabled !== true) return { enabled: false };
+  const creatorName = typeof value.creatorName === "string" ? value.creatorName.trim() : "";
+  const description = typeof value.description === "string" ? value.description.trim() : "";
+  if (creatorName.length > 64) throw new Error("Creator name must be 64 characters or fewer.");
+  if (description.length > 280) throw new Error("Creator description must be 280 characters or fewer.");
+  const extras = {
+    enabled: true,
+    creatorName,
+    websiteUrl: normalizeOptionalHttpsUrl(value.websiteUrl, "Website"),
+    xUrl: normalizeOptionalHttpsUrl(value.xUrl, "X profile"),
+    telegramUrl: normalizeOptionalHttpsUrl(value.telegramUrl, "Telegram link"),
+    discordUrl: normalizeOptionalHttpsUrl(value.discordUrl, "Discord link"),
+    description,
+  };
+  if (!extras.creatorName && !extras.websiteUrl && !extras.xUrl && !extras.telegramUrl && !extras.discordUrl && !extras.description) {
+    throw new Error("Enter at least one creator detail for the selected add-on.");
+  }
+  return extras;
 }
 
 export function verifyPoolContributionPayment(transactionResponse, { signature, payer, expectedLamports }) {
@@ -61,9 +94,12 @@ export function normalizeCoinRequest(value, poolContributionLamports) {
   if (!DECIMAL_OPTIONS.has(decimals)) throw new Error("Unsupported decimal precision.");
   if (BigInt(supply) * 10n ** BigInt(decimals) > 18_446_744_073_709_551_615n) throw new Error("Supply exceeds the SPL token amount limit.");
   if (!Number.isSafeInteger(marketCapTarget) || marketCapTarget < 1 || marketCapTarget > MAX_USD_TARGET) throw new Error("Market cap target is outside the supported range.");
+  const creatorExtras = normalizeCreatorExtras(value?.creatorExtras);
   if (!/^\d+$/.test(String(poolContributionLamports ?? ""))) throw new Error("Pool contribution amount is required in lamports.");
   const contribution = BigInt(poolContributionLamports);
-  if (contribution < MIN_POOL_CONTRIBUTION_LAMPORTS || contribution > MAX_U64_LAMPORTS) throw new Error("Pool contribution must be at least 0.5 SOL and fit a Solana transfer.");
+  if (contribution < MIN_POOL_CONTRIBUTION_LAMPORTS) throw new Error("Pool contribution must be at least 0.5 SOL.");
+  const expectedPayment = FIXED_COIN_REQUEST_PAYMENT_LAMPORTS + (creatorExtras.enabled ? CREATOR_PROFILE_ADDON_LAMPORTS : 0n);
+  if (contribution !== expectedPayment) throw new Error("Coin request payment does not match the selected add-ons.");
 
   let imageUrl = "";
   if (typeof value.imageUrl === "string" && value.imageUrl.trim()) imageUrl = normalizeJpegUrl(value.imageUrl);
@@ -77,6 +113,7 @@ export function normalizeCoinRequest(value, poolContributionLamports) {
     mintAuthority: value.mintAuthority === true,
     freezeAuthority: value.freezeAuthority === true,
     imageUrl,
+    creatorExtras,
     network: "devnet",
   };
 }

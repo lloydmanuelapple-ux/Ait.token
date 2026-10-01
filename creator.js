@@ -1,5 +1,5 @@
 import { clusterApiUrl, Connection, PublicKey, Transaction } from "@solana/web3.js";
-import { createSolPaymentInstruction, formatSolAmount, MIN_POOL_CONTRIBUTION_LAMPORTS, parsePoolContribution, PAYMENT_RECIPIENT_ADDRESS } from "./payment.js";
+import { createSolPaymentInstruction, CREATOR_PROFILE_ADDON_LAMPORTS, COIN_REQUEST_BASE_PAYMENT_LAMPORTS, COIN_REQUEST_SECURITY_FEE_LAMPORTS, FIXED_COIN_REQUEST_PAYMENT_LAMPORTS, formatSolAmount, parsePoolContribution, PAYMENT_RECIPIENT_ADDRESS } from "./payment.js";
 import { normalizeJpegUrl } from "./logo-url.js";
 
 const $ = (selector) => document.querySelector(selector);
@@ -13,7 +13,16 @@ const marketCapInput = $("#market-cap-target");
 const decimalsInput = $("#token-decimals");
 const mintAuthorityInput = $("#mint-authority");
 const freezeAuthorityInput = $("#freeze-authority");
-const poolContributionInput = $("#pool-contribution-sol");
+const creatorExtrasToggle = $("#creator-extras");
+const creatorExtrasFields = $("#creator-extras-fields");
+const creatorExtrasInputs = {
+  creatorName: $("#creator-name"),
+  websiteUrl: $("#creator-website"),
+  xUrl: $("#creator-x"),
+  telegramUrl: $("#creator-telegram"),
+  discordUrl: $("#creator-discord"),
+  description: $("#creator-description"),
+};
 const feePaymentButton = $("#confirm-fee-payment");
 const mainnetConnection = new Connection(clusterApiUrl("mainnet-beta"), "confirmed");
 const draftKey = "ait-token-studio-draft-v1";
@@ -49,19 +58,48 @@ function getWalletProvider() {
   return window.phantom?.solana || window.solana;
 }
 
+function getPaymentLamports(extrasEnabled) {
+  return FIXED_COIN_REQUEST_PAYMENT_LAMPORTS + (extrasEnabled ? CREATOR_PROFILE_ADDON_LAMPORTS : 0n);
+}
+
+function getPaymentBreakdown(extrasEnabled) {
+  const base = formatSolAmount(COIN_REQUEST_BASE_PAYMENT_LAMPORTS);
+  const securityFee = formatSolAmount(COIN_REQUEST_SECURITY_FEE_LAMPORTS);
+  const extras = extrasEnabled ? ` + ${formatSolAmount(CREATOR_PROFILE_ADDON_LAMPORTS)} SOL creator profile bundle` : "";
+  return `${base} SOL request + ${securityFee} SOL security fee (30%)${extras}`;
+}
+
 function getDraft() {
+  const extrasEnabled = creatorExtrasToggle.checked;
   return {
     name: nameInput.value.trim(),
     symbol: symbolInput.value.trim().toUpperCase(),
     imageUrl: imageUrlInput.value.trim(),
     supply: supplyInput.value,
     marketCapTarget: marketCapInput.value,
-    poolContributionSol: poolContributionInput.value.trim(),
+    poolContributionSol: formatSolAmount(getPaymentLamports(extrasEnabled)),
     decimals: decimalsInput.value,
     mintAuthority: mintAuthorityInput.checked,
     freezeAuthority: freezeAuthorityInput.checked,
+    creatorExtras: {
+      enabled: extrasEnabled,
+      creatorName: creatorExtrasInputs.creatorName.value.trim(),
+      websiteUrl: creatorExtrasInputs.websiteUrl.value.trim(),
+      xUrl: creatorExtrasInputs.xUrl.value.trim(),
+      telegramUrl: creatorExtrasInputs.telegramUrl.value.trim(),
+      discordUrl: creatorExtrasInputs.discordUrl.value.trim(),
+      description: creatorExtrasInputs.description.value.trim(),
+    },
     network: "devnet",
   };
+}
+
+function updatePaymentSummary() {
+  const enabled = creatorExtrasToggle.checked;
+  creatorExtrasFields.hidden = !enabled;
+  for (const input of Object.values(creatorExtrasInputs)) input.disabled = !enabled;
+  $("#creator-extras-charge").hidden = !enabled;
+  $("#payment-total").textContent = `${formatSolAmount(getPaymentLamports(enabled))} SOL`;
 }
 
 function updateWalletControls() {
@@ -117,11 +155,18 @@ function loadDraft() {
     symbolInput.value = typeof saved.symbol === "string" ? saved.symbol.slice(0, 10) : "";
     imageUrlInput.value = typeof saved.imageUrl === "string" ? saved.imageUrl.slice(0, 2000) : "";
     supplyInput.value = String(saved.supply || "1000000000");
-    poolContributionInput.value = typeof saved.poolContributionSol === "string" ? saved.poolContributionSol : "0.5";
     marketCapInput.value = String(saved.marketCapTarget || "1000000000");
     decimalsInput.value = ["0", "2", "6", "9"].includes(String(saved.decimals)) ? String(saved.decimals) : "6";
     mintAuthorityInput.checked = saved.mintAuthority === true;
     freezeAuthorityInput.checked = saved.freezeAuthority === true;
+    const savedExtras = saved.creatorExtras && typeof saved.creatorExtras === "object" ? saved.creatorExtras : {};
+    creatorExtrasToggle.checked = savedExtras.enabled === true;
+    creatorExtrasInputs.creatorName.value = typeof savedExtras.creatorName === "string" ? savedExtras.creatorName.slice(0, 64) : "";
+    creatorExtrasInputs.websiteUrl.value = typeof savedExtras.websiteUrl === "string" ? savedExtras.websiteUrl.slice(0, 500) : "";
+    creatorExtrasInputs.xUrl.value = typeof savedExtras.xUrl === "string" ? savedExtras.xUrl.slice(0, 500) : "";
+    creatorExtrasInputs.telegramUrl.value = typeof savedExtras.telegramUrl === "string" ? savedExtras.telegramUrl.slice(0, 500) : "";
+    creatorExtrasInputs.discordUrl.value = typeof savedExtras.discordUrl === "string" ? savedExtras.discordUrl.slice(0, 500) : "";
+    creatorExtrasInputs.description.value = typeof savedExtras.description === "string" ? savedExtras.description.slice(0, 280) : "";
     $("#draft-status-text").textContent = "Draft restored";
   } catch {
     $("#draft-status-text").textContent = "Draft storage unavailable";
@@ -131,7 +176,7 @@ function loadDraft() {
 function validateDraft() {
   const draft = getDraft();
   const errors = [];
-  for (const input of [nameInput, symbolInput, supplyInput, marketCapInput, imageUrlInput, poolContributionInput]) input.removeAttribute("aria-invalid");
+  for (const input of [nameInput, symbolInput, supplyInput, marketCapInput, imageUrlInput, ...Object.values(creatorExtrasInputs)]) input.removeAttribute("aria-invalid");
   if (!draft.name || draft.name.length > 32) {
     errors.push("Coin name must be 1–32 characters.");
     nameInput.setAttribute("aria-invalid", "true");
@@ -146,11 +191,25 @@ function validateDraft() {
       imageUrlInput.setAttribute("aria-invalid", "true");
     }
   }
-  if (localLogoObjectUrl && !draft.imageUrl) errors.push("A local logo preview cannot be sent to the creator. Add a public JPG URL or clear the local image.");
-  try { parsePoolContribution(draft.poolContributionSol); } catch (error) {
-    errors.push(error.message);
-    poolContributionInput.setAttribute("aria-invalid", "true");
+  if (draft.creatorExtras.enabled) {
+    const extras = draft.creatorExtras;
+    if (!extras.creatorName && !extras.websiteUrl && !extras.xUrl && !extras.telegramUrl && !extras.discordUrl && !extras.description) {
+      errors.push("Enter at least one creator detail for the selected add-on.");
+      creatorExtrasInputs.creatorName.setAttribute("aria-invalid", "true");
+    }
+    for (const [key, label] of [["websiteUrl", "Website"], ["xUrl", "X profile"], ["telegramUrl", "Telegram link"], ["discordUrl", "Discord link"]]) {
+      const value = extras[key];
+      if (!value) continue;
+      try {
+        const url = new URL(value);
+        if (url.protocol !== "https:" || !url.hostname || url.username || url.password) throw new Error();
+      } catch {
+        errors.push(`${label} must be a valid HTTPS URL.`);
+        creatorExtrasInputs[key].setAttribute("aria-invalid", "true");
+      }
+    }
   }
+  if (localLogoObjectUrl && !draft.imageUrl) errors.push("A local logo preview cannot be sent to the creator. Add a public JPG URL or clear the local image.");
   const supply = Number(draft.supply);
   if (!Number.isSafeInteger(supply) || supply < 1 || supply > 1_000_000_000_000) {
     errors.push("Supply must be a whole number from 1 to 1 trillion.");
@@ -203,13 +262,14 @@ function showReceipt(receipt) {
   try { localStorage.setItem(receiptKey, JSON.stringify(receipt)); } catch { /* receipt still shown for this page session */ }
   try { sessionStorage.removeItem(pendingKey); } catch { /* private status remains available from the server */ }
   reviewedPayment = null;
-  $("#plan-result").hidden = true;
   $("#fee-review-panel").hidden = true;
   $("#queue-result-panel").hidden = false;
   $("#queue-spinner").hidden = true;
   $("#queue-result-title").classList.remove("negative");
-  $("#queue-result-title").textContent = "Coin request received";
-  $("#queue-result-copy").textContent = `${receipt.name} is privately queued for the creator. No further payment is needed for this request.`;
+  $("#queue-result-title").textContent = "Payment confirmed";
+  const paymentAmount = formatSolAmount(BigInt(receipt.poolContributionLamports));
+  const extrasCopy = receipt.creatorExtrasEnabled ? " Your creator profile bundle is included." : "";
+  $("#queue-result-copy").textContent = `Your ${paymentAmount} SOL payment is confirmed.${extrasCopy} ${receipt.name} (${receipt.symbol}) is in the creator's queue. Track its progress here.`;
   $("#queue-receipt").hidden = false;
   $("#queue-private-note").hidden = false;
   $("#queue-request-id").textContent = receipt.requestId;
@@ -283,7 +343,7 @@ function updateFeeControls() {
         ? "Review the contribution first"
       : !acknowledged
         ? "Confirm both acknowledgements"
-        : `Pay ${formatSolAmount(BigInt(reviewedPayment.poolContributionLamports))} SOL with Phantom`;
+        : `Finish your coin · Pay ${formatSolAmount(BigInt(reviewedPayment.poolContributionLamports))} SOL`;
 }
 
 async function prepareFeeReview() {
@@ -309,6 +369,7 @@ async function prepareFeeReview() {
     $("#fee-payer").textContent = "Connect Phantom to identify payer";
     $("#fee-recipient").textContent = PAYMENT_RECIPIENT_ADDRESS;
     $("#fee-pool-amount").textContent = `${formatSolAmount(amount)} SOL`;
+    $("#fee-payment-breakdown").textContent = getPaymentBreakdown(currentPlan.creatorExtras.enabled);
     $("#fee-network-cost").textContent = "Connect Phantom for estimate";
     $("#fee-review-panel").hidden = false;
     $("#ack-fee-transfer").checked = false;
@@ -331,6 +392,7 @@ async function prepareFeeReview() {
     $("#fee-payer").textContent = payer.toBase58();
     $("#fee-recipient").textContent = PAYMENT_RECIPIENT_ADDRESS;
     $("#fee-pool-amount").textContent = `${formatSolAmount(poolContributionLamports)} SOL`;
+    $("#fee-payment-breakdown").textContent = getPaymentBreakdown(currentPlan.creatorExtras.enabled);
     $("#fee-network-cost").textContent = fee.value === null ? "Shown in Phantom" : `${formatSolAmount(BigInt(fee.value))} SOL estimated; Phantom shows final fee`;
     $("#fee-review-panel").hidden = false;
     $("#ack-fee-transfer").checked = false;
@@ -442,7 +504,7 @@ async function payServiceFee() {
   }
 }
 
-function showCoinPlan() {
+function validateCoinRequest() {
   const errors = validateDraft();
   $("#form-error").hidden = errors.length === 0;
   $("#form-error").textContent = errors.join(" ");
@@ -451,21 +513,12 @@ function showCoinPlan() {
     return false;
   }
   currentPlan = getDraft();
-  const authorities = [currentPlan.mintAuthority && "mint", currentPlan.freezeAuthority && "freeze"].filter(Boolean);
-  const authoritySummary = authorities.length ? `Retained ${authorities.map((authority) => `${authority} authority`).join(" and ")}.` : "Mint and freeze authorities will be revoked.";
-  const targetMarketCap = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(Number(currentPlan.marketCapTarget));
-  const impliedPrice = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 6 }).format(Number(currentPlan.marketCapTarget) / Number(currentPlan.supply));
-  const imageSummary = currentPlan.imageUrl ? "Public JPG URL included for the creator." : "No public logo URL included.";
-  const contribution = formatSolAmount(parsePoolContribution(currentPlan.poolContributionSol));
-  $("#result-summary").textContent = `${currentPlan.name} (${currentPlan.symbol}) · ${Number(currentPlan.supply).toLocaleString("en-US")} tokens · ${currentPlan.decimals} decimals · Devnet request. Requested initial pool contribution: ${contribution} SOL, minimum 0.5 SOL. ${targetMarketCap} target implies ${impliedPrice} per token at this supply; illustrative only. ${authoritySummary} ${imageSummary} Your selected contribution will be recorded with this private coin request.`;
-  $("#plan-result").hidden = false;
   $("#fee-review-panel").hidden = true;
   $("#queue-result-panel").hidden = true;
-  $("#plan-result").scrollIntoView({ behavior: "smooth", block: "nearest" });
   return true;
 }
 
-for (const input of [nameInput, symbolInput, supplyInput, poolContributionInput, marketCapInput, imageUrlInput, decimalsInput, mintAuthorityInput, freezeAuthorityInput]) {
+for (const input of [nameInput, symbolInput, supplyInput, marketCapInput, imageUrlInput, decimalsInput, mintAuthorityInput, freezeAuthorityInput]) {
   input.addEventListener("input", updatePreview);
   input.addEventListener("change", updatePreview);
 }
@@ -534,11 +587,11 @@ $("#save-button").addEventListener("click", () => {
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
-  if (showCoinPlan()) await prepareFeeReview();
+  if (validateCoinRequest()) await prepareFeeReview();
 });
 
+creatorExtrasToggle.addEventListener("change", updatePaymentSummary);
 $("#wallet-button").addEventListener("click", connectWallet);
-$("#prepare-pool-contribution").addEventListener("click", prepareFeeReview);
 $("#copy-payment-address").addEventListener("click", async (event) => {
   try {
     await navigator.clipboard.writeText(PAYMENT_RECIPIENT_ADDRESS);
@@ -546,15 +599,6 @@ $("#copy-payment-address").addEventListener("click", async (event) => {
     window.setTimeout(() => { event.currentTarget.textContent = "Copy"; }, 1500);
   } catch {
     setFeeStatus("Clipboard is unavailable. Select and copy the displayed payment address.", true);
-  }
-});
-$("#copy-pool-recipient").addEventListener("click", async (event) => {
-  try {
-    await navigator.clipboard.writeText(PAYMENT_RECIPIENT_ADDRESS);
-    event.currentTarget.textContent = "Copied";
-    window.setTimeout(() => { event.currentTarget.textContent = "Copy address"; }, 1500);
-  } catch {
-    setFeeStatus("Clipboard is unavailable. Select and copy the displayed pool recipient address.", true);
   }
 });
 $("#cancel-fee-review").addEventListener("click", () => {
@@ -566,9 +610,9 @@ for (const checkbox of [$("#ack-fee-transfer"), $("#ack-creator-queue")]) checkb
 feePaymentButton.addEventListener("click", payServiceFee);
 $("#retry-queue").addEventListener("click", retryQueueVerification);
 $("#refresh-queue-status").addEventListener("click", refreshRequestStatus);
-$("#result-close").addEventListener("click", () => { $("#plan-result").hidden = true; });
 
 loadDraft();
+updatePaymentSummary();
 updatePreview();
 updateWalletControls();
 updateFeeControls();

@@ -51,6 +51,7 @@ function privateReceipt(entry) {
     status: entry.status,
     paymentSignature: entry.paymentSignature,
     poolContributionLamports: entry.poolContributionLamports,
+    creatorExtrasEnabled: entry.coin.creatorExtras?.enabled === true,
     name: entry.coin.name,
     symbol: entry.coin.symbol,
     createdAt: entry.createdAt,
@@ -93,7 +94,7 @@ app.post("/api/coin-requests", async (req, res) => {
     });
     if (!transaction) return res.status(425).json({ error: "Payment is not visible as confirmed on Mainnet yet. Retry verification; do not send again." });
     if (!verifyPoolContributionPayment(transaction, { signature, payer, expectedLamports: coin.poolContributionLamports })) {
-      return res.status(402).json({ error: "Confirmed transaction does not match the selected pool contribution, recipient, and payer." });
+      return res.status(402).json({ error: "Confirmed transaction does not match the required payment amount, recipient, and payer." });
     }
 
     const entry = await withQueueLock(async () => {

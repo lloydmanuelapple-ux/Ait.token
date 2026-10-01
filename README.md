@@ -16,7 +16,7 @@ The current app experience tracks up to 60 trending Solana pools, including meme
 
 The feed is a discovery list, not a complete registry of meme coins. Market data may be delayed or incomplete. The app does not execute market trades or provide financial advice.
 
-The **Create coin** page prepares a Devnet coin request. A user chooses an initial pool contribution of at least 0.5 SOL, and Phantom shows the exact Mainnet transfer to the project wallet. The server checks the confirmed amount, recipient, payer, and transaction before saving the request privately. The contribution is a requested liquidity budget sent to the project wallet; it is not an on-chain pool deposit at payment time and does not provide self-custody or promise returns.
+The **Create coin** page prepares a Devnet coin request. Phantom shows a 0.65 SOL Mainnet transfer to the project wallet: 0.5 SOL for the request plus a 30% (0.15 SOL) security fee. An optional creator profile and social-links bundle costs an additional 0.1 SOL, making the transfer 0.75 SOL. The Solana network fee is separate. The server checks the selected amount, recipient, payer, and transaction before saving the request privately. Payment queues the request for creator-managed token creation; it is not an on-chain pool deposit and does not automatically mint or deliver tokens.
 
 ## Run
 

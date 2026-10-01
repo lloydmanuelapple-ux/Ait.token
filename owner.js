@@ -7,6 +7,9 @@ const queueRows = document.querySelector("#owner-queue-rows");
 const queueState = document.querySelector("#owner-queue-state");
 let ownerToken = "";
 let requests = [];
+let knownRequestIds = null;
+let queuePollTimer = null;
+let queueLoadActive = false;
 
 function setStatus(message, isError = false) {
   queueStatus.textContent = message;
@@ -24,6 +27,35 @@ function addCell(row, text) {
 function formatTime(timestamp) {
   const parsed = new Date(timestamp);
   return Number.isNaN(parsed.valueOf()) ? "--" : parsed.toLocaleString();
+}
+
+function addCreatorExtrasCell(row, extras) {
+  const cell = document.createElement("td");
+  cell.className = "owner-addon-cell";
+  if (!extras?.enabled) {
+    cell.textContent = "Not selected";
+    row.append(cell);
+    return;
+  }
+  const details = document.createElement("details");
+  const summary = document.createElement("summary");
+  summary.textContent = "View paid bundle";
+  details.append(summary);
+  for (const [label, value] of [
+    ["Creator", extras.creatorName],
+    ["Website", extras.websiteUrl],
+    ["X", extras.xUrl],
+    ["Telegram", extras.telegramUrl],
+    ["Discord", extras.discordUrl],
+    ["Description", extras.description],
+  ]) {
+    if (!value) continue;
+    const line = document.createElement("p");
+    line.textContent = `${label}: ${value}`;
+    details.append(line);
+  }
+  cell.append(details);
+  row.append(cell);
 }
 
 async function requestJson(url, options = {}) {
@@ -48,6 +80,7 @@ function renderRequests() {
     const walletCell = addCell(row, request.payer);
     walletCell.className = "owner-wallet-cell";
     addCell(row, `${formatSolAmount(BigInt(request.poolContributionLamports))} SOL · confirmed`);
+    addCreatorExtrasCell(row, request.coin.creatorExtras);
     addCell(row, formatTime(request.createdAt));
     const statusCell = document.createElement("td");
     const select = document.createElement("select");
@@ -70,20 +103,32 @@ function renderRequests() {
 }
 
 async function loadQueue() {
-  if (!ownerToken) return;
+  if (!ownerToken || queueLoadActive) return;
+  queueLoadActive = true;
   setStatus("Loading private queue…");
   queueState.hidden = false;
   queueState.textContent = "Loading paid requests…";
   try {
-    requests = await requestJson("/api/owner/coin-requests");
+    const loadedRequests = await requestJson("/api/owner/coin-requests");
+    const knownIds = new Set(knownRequestIds || []);
+    const newRequests = knownRequestIds ? loadedRequests.filter((request) => !knownIds.has(request.requestId)) : [];
+    requests = loadedRequests;
+    knownRequestIds = new Set(requests.map((request) => request.requestId));
     renderRequests();
-    setStatus(`${requests.length} private ${requests.length === 1 ? "request" : "requests"} loaded.`);
+    if (newRequests.length) {
+      const names = newRequests.map((request) => `${request.coin.name} (${request.coin.symbol})`).join(", ");
+      setStatus(`New confirmed payment${newRequests.length === 1 ? "" : "s"}: ${names}.`);
+    } else {
+      setStatus(`${requests.length} private ${requests.length === 1 ? "request" : "requests"} loaded.`);
+    }
   } catch (error) {
     requests = [];
     queueRows.replaceChildren();
     queueState.hidden = false;
     queueState.textContent = "Could not load the private queue.";
     setStatus(error.message, true);
+  } finally {
+    queueLoadActive = false;
   }
 }
 
@@ -109,5 +154,7 @@ ownerForm.addEventListener("submit", (event) => {
   ownerToken = ownerInput.value.trim();
   ownerInput.value = "";
   loadQueue();
+  if (queuePollTimer) window.clearInterval(queuePollTimer);
+  queuePollTimer = window.setInterval(loadQueue, 30_000);
 });
 document.querySelector("#refresh-queue").addEventListener("click", loadQueue);

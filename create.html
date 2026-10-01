@@ -123,22 +123,35 @@
             </div>
 
             <div class="field-row pool-contribution-row">
-              <label class="field">
-                <span class="field-label">Requested initial pool contribution</span>
-                <div class="pool-amount-input"><input id="pool-contribution-sol" name="poolContributionSol" type="text" inputmode="decimal" value="0.5" autocomplete="off" required><span>SOL</span></div>
-                <span class="field-hint">Minimum 0.5 SOL. No app-set maximum; the Solana protocol has a transfer limit.</span>
-              </label>
+              <div class="field">
+                <span class="field-label">Coin request payment</span>
+                <div class="fixed-payment-amount">
+                  <div><span>Coin request</span><strong>0.5 SOL</strong></div>
+                  <div><span>Security fee (30%)</span><strong>0.15 SOL</strong></div>
+                  <div id="creator-extras-charge" hidden><span>Creator profile bundle</span><strong>0.1 SOL</strong></div>
+                  <div class="payment-total"><span>Total</span><strong id="payment-total">0.65 SOL</strong></div>
+                </div>
+                <span class="field-hint">Fixed Mainnet transfer to the project wallet. Network fee is separate.</span>
+              </div>
             </div>
 
-            <section class="pool-recipient-section" aria-labelledby="pool-recipient-title">
-              <div class="pool-recipient-copy">
-                <p class="step-label">FINISH YOUR COIN / POOL CONTRIBUTION</p>
-                <h3 id="pool-recipient-title">Confirm the pool recipient</h3>
-                <p>To submit this coin request, send your selected SOL contribution to the project wallet below. Your chosen amount will be recorded with your private request.</p>
-                <strong id="pool-recipient-address">ffXZvHDiXH2i5Pq4cL2y7c4RPMcm53wijzvoHbkYoHn</strong>
+            <fieldset class="creator-extras-fieldset">
+              <legend>Optional add-on</legend>
+              <label class="creator-extras-choice" for="creator-extras">
+                <input id="creator-extras" type="checkbox">
+                <span><strong>Creator profile and social links</strong><small>Creator name, website, X, Telegram, Discord, and a short description</small></span>
+                <strong class="creator-extras-price">+0.1 SOL</strong>
+              </label>
+              <div class="creator-extras-fields" id="creator-extras-fields" hidden>
+                <label class="field"><span class="field-label">Creator name</span><input id="creator-name" type="text" maxlength="64" placeholder="Name or display name" disabled></label>
+                <label class="field"><span class="field-label">Website</span><input id="creator-website" type="url" maxlength="500" placeholder="https://example.com" disabled></label>
+                <label class="field"><span class="field-label">X profile</span><input id="creator-x" type="url" maxlength="500" placeholder="https://x.com/yourname" disabled></label>
+                <label class="field"><span class="field-label">Telegram</span><input id="creator-telegram" type="url" maxlength="500" placeholder="https://t.me/yourgroup" disabled></label>
+                <label class="field"><span class="field-label">Discord invite</span><input id="creator-discord" type="url" maxlength="500" placeholder="https://discord.gg/yourinvite" disabled></label>
+                <label class="field creator-description-field"><span class="field-label">Short description</span><textarea id="creator-description" maxlength="280" rows="3" placeholder="Describe the creator or project" disabled></textarea></label>
               </div>
-              <button class="copy-button" id="copy-pool-recipient" type="button" title="Copy pool recipient address" aria-label="Copy pool recipient address">Copy address</button>
-            </section>
+              <p class="field-hint">One-time bundle price: 0.1 SOL. Enter at least one detail to include the bundle.</p>
+            </fieldset>
 
             <fieldset class="authority-fieldset">
               <legend>Authority settings</legend>
@@ -161,7 +174,7 @@
             <div class="form-error" id="form-error" role="alert" hidden></div>
             <div class="form-actions">
               <button class="save-button" id="save-button" type="button"><span aria-hidden="true">↓</span> Save draft</button>
-              <button class="primary-button" type="submit">Review coin request <span aria-hidden="true">↗</span></button>
+              <button class="primary-button" type="submit">Continue to payment <span aria-hidden="true">↗</span></button>
             </div>
           </form>
         </section>
@@ -217,33 +230,20 @@
         </aside>
       </div>
 
-      <section class="plan-result" id="plan-result" aria-live="polite" hidden>
-        <div class="result-icon" aria-hidden="true">✓</div>
-        <div class="result-copy">
-          <p class="step-label">COIN REQUEST</p>
-          <h2>Review the coin completion request.</h2>
-          <p id="result-summary"></p>
-          <div class="transaction-actions">
-              <button class="primary-button" id="prepare-pool-contribution" type="button">Review transfer to finish coin request <span aria-hidden="true">→</span></button>
-          </div>
-          <p class="mint-status" id="plan-status" role="status" aria-live="polite">No payment is made until you review the recipient and approve in Phantom.</p>
-        </div>
-        <button class="result-close" id="result-close" type="button" aria-label="Dismiss launch plan">×</button>
-      </section>
-
       <section class="fee-review-panel" id="fee-review-panel" aria-labelledby="fee-review-title" hidden>
-          <div class="fee-review-heading"><div><p class="step-label">MAINNET POOL CONTRIBUTION</p><h2 id="fee-review-title">Confirm the exact transfer</h2></div><button class="review-cancel" id="cancel-fee-review" type="button">Cancel</button></div>
+          <div class="fee-review-heading"><div><p class="step-label">MAINNET PAYMENT</p><h2 id="fee-review-title">Confirm the exact transfer</h2></div><button class="review-cancel" id="cancel-fee-review" type="button">Cancel</button></div>
         <div class="fee-review-facts">
-            <div><span>POOL CONTRIBUTION</span><strong id="fee-pool-amount">0.5 SOL</strong></div>
+            <div class="fee-payment-breakdown"><span>BREAKDOWN</span><strong id="fee-payment-breakdown">0.5 SOL request + 0.15 SOL security fee (30%)</strong></div>
+            <div><span>TOTAL TRANSFER</span><strong id="fee-pool-amount">0.65 SOL</strong></div>
           <div><span>FROM</span><strong id="fee-payer">--</strong></div>
           <div class="fee-recipient-detail"><span>TO</span><div><strong id="fee-recipient">ffXZvHDiXH2i5Pq4cL2y7c4RPMcm53wijzvoHbkYoHn</strong><button class="copy-payment-address" id="copy-payment-address" type="button" title="Copy recipient address">Copy</button></div></div>
           <div><span>NETWORK FEE</span><strong id="fee-network-cost">Phantom shows final fee</strong></div>
           <div><span>NETWORK</span><strong>Solana Mainnet</strong></div>
         </div>
-          <p class="fee-warning">This sends your selected SOL amount to the AI.Token project wallet and records it as your requested initial pool contribution. The transfer is not itself an on-chain pool deposit and does not provide self-custody, tokens, or guaranteed returns.</p>
-        <label class="fee-ack"><input id="ack-fee-transfer" type="checkbox"><span class="risk-checkmark" aria-hidden="true"></span><span>I confirm the selected amount will be sent from my wallet to the displayed project wallet.</span></label>
-          <label class="fee-ack"><input id="ack-creator-queue" type="checkbox"><span class="risk-checkmark" aria-hidden="true"></span><span>I understand this is a direct Mainnet transfer to the project wallet and is not an on-chain pool deposit.</span></label>
-        <button class="confirm-payment-button" id="confirm-fee-payment" type="button" disabled>Connect Phantom to continue</button>
+          <p class="fee-warning">The total shown above is sent to the AI.Token project wallet. It includes the coin request, 30% security fee, and any selected extras. Phantom may charge a separate network fee. This is not an on-chain pool deposit and does not automatically create or deliver tokens. Requests are handled by the creator.</p>
+        <label class="fee-ack"><input id="ack-fee-transfer" type="checkbox"><span class="risk-checkmark" aria-hidden="true"></span><span>I confirm the total shown above will be sent from my wallet to the displayed project wallet.</span></label>
+          <label class="fee-ack"><input id="ack-creator-queue" type="checkbox"><span class="risk-checkmark" aria-hidden="true"></span><span>I understand this is a direct Mainnet transfer and does not automatically create tokens.</span></label>
+        <button class="confirm-payment-button" id="confirm-fee-payment" type="button" disabled>Finish your coin · Pay 0.65 SOL</button>
         <p class="payment-status" id="fee-status" role="status" aria-live="polite">Phantom will show the transaction before you sign.</p>
         <a class="payment-explorer" id="fee-explorer" target="_blank" rel="noreferrer" hidden>View Mainnet payment ↗</a>
       </section>
@@ -257,7 +257,7 @@
           <dl class="queue-receipt" id="queue-receipt" hidden>
             <div><dt>REQUEST ID</dt><dd id="queue-request-id">--</dd></div>
             <div><dt>COIN</dt><dd id="queue-coin-name">--</dd></div>
-            <div><dt>POOL CONTRIBUTION</dt><dd id="queue-pool-contribution">-- SOL</dd></div>
+            <div><dt>PAYMENT</dt><dd id="queue-pool-contribution">-- SOL</dd></div>
             <div><dt>STATUS</dt><dd id="queue-request-status">Waiting for creator</dd></div>
           </dl>
           <div class="queue-actions">
@@ -271,7 +271,7 @@
 
       <footer class="page-footer">
         <span><span class="footer-mark">AI</span> AI.TOKEN</span>
-          <p>User-selected pool contribution sent to the project wallet. Requests are privately queued for owner-managed creation.</p>
+          <p>Fixed 0.65 SOL Mainnet payment, including the 30% security fee, sent to the project wallet. Requests are privately queued for creator-managed creation.</p>
         <a href="https://solana.com/docs/tokens" target="_blank" rel="noreferrer">Solana token docs <span aria-hidden="true">↗</span></a>
       </footer>
     </main>

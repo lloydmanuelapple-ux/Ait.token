@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import bs58 from "bs58";
 import { Keypair, Transaction } from "@solana/web3.js";
-import { createSolPaymentInstruction, MAX_U64_LAMPORTS, MIN_POOL_CONTRIBUTION_LAMPORTS, PAYMENT_RECIPIENT_ADDRESS } from "./payment.js";
+import { createSolPaymentInstruction, COIN_REQUEST_BASE_PAYMENT_LAMPORTS, COIN_REQUEST_SECURITY_FEE_LAMPORTS, CREATOR_PROFILE_ADDON_LAMPORTS, FIXED_COIN_REQUEST_PAYMENT_LAMPORTS, MAX_U64_LAMPORTS, MIN_POOL_CONTRIBUTION_LAMPORTS, PAYMENT_RECIPIENT_ADDRESS } from "./payment.js";
 import { normalizeCoinRequest, verifyPoolContributionPayment } from "./coin-queue.js";
 
 function makePayment(payer, signature, lamports = MIN_POOL_CONTRIBUTION_LAMPORTS, overrides = {}) {
@@ -74,6 +74,9 @@ test("rejects wrong signatures, wrong recipient, wrong amount, unsigned payer, a
 });
 
 test("normalizes only the supported coin request fields", () => {
+  assert.equal(COIN_REQUEST_BASE_PAYMENT_LAMPORTS, 500_000_000n);
+  assert.equal(COIN_REQUEST_SECURITY_FEE_LAMPORTS, 150_000_000n);
+  assert.equal(FIXED_COIN_REQUEST_PAYMENT_LAMPORTS, 650_000_000n);
   assert.deepEqual(normalizeCoinRequest({
     name: "  Moon Notes ",
     symbol: "moon",
@@ -84,18 +87,48 @@ test("normalizes only the supported coin request fields", () => {
     mintAuthority: true,
     freezeAuthority: false,
     unexpected: "discard this",
-  }, "750000000"), {
+  }, "650000000"), {
     name: "Moon Notes",
     symbol: "MOON",
     supply: 1_000_000_000,
     decimals: 6,
     marketCapTarget: 1_000_000_000,
-    poolContributionLamports: "750000000",
+    poolContributionLamports: "650000000",
     mintAuthority: true,
     freezeAuthority: false,
     imageUrl: "https://assets.example/moon.jpg",
+    creatorExtras: { enabled: false },
     network: "devnet",
   });
-  assert.throws(() => normalizeCoinRequest({ name: "X", symbol: "X", supply: 1, decimals: 9, marketCapTarget: 1, imageUrl: "javascript:alert(1)" }, "500000000"), /HTTP or HTTPS/);
+  assert.throws(() => normalizeCoinRequest({ name: "X", symbol: "X", supply: 1, decimals: 9, marketCapTarget: 1, imageUrl: "javascript:alert(1)" }, "650000000"), /HTTP or HTTPS/);
   assert.throws(() => normalizeCoinRequest({ name: "X", symbol: "X", supply: 1, decimals: 9, marketCapTarget: 1 }, "499999999"), /at least 0.5 SOL/);
+  assert.equal(CREATOR_PROFILE_ADDON_LAMPORTS, 100_000_000n);
+  assert.throws(() => normalizeCoinRequest({ name: "X", symbol: "X", supply: 1, decimals: 9, marketCapTarget: 1 }, "750000000"), /selected add-ons/);
+  assert.throws(() => normalizeCoinRequest({ name: "X", symbol: "X", supply: 1, decimals: 9, marketCapTarget: 1 }, "500000000"), /selected add-ons/);
+});
+
+test("includes the creator profile bundle only with its exact add-on payment", () => {
+  const coin = {
+    name: "Profile Coin",
+    symbol: "PROFILE",
+    supply: 1_000_000,
+    decimals: 6,
+    marketCapTarget: 10_000,
+    creatorExtras: {
+      enabled: true,
+      creatorName: "Ada Creator",
+      websiteUrl: "https://example.com",
+      xUrl: "https://x.com/ada",
+      telegramUrl: "",
+      discordUrl: "",
+      description: "A short project description.",
+    },
+  };
+  const normalized = normalizeCoinRequest(coin, (FIXED_COIN_REQUEST_PAYMENT_LAMPORTS + CREATOR_PROFILE_ADDON_LAMPORTS).toString());
+  assert.equal(normalized.creatorExtras.enabled, true);
+  assert.equal(normalized.creatorExtras.creatorName, "Ada Creator");
+  assert.equal(normalized.creatorExtras.websiteUrl, "https://example.com/");
+  assert.throws(() => normalizeCoinRequest(coin, FIXED_COIN_REQUEST_PAYMENT_LAMPORTS.toString()), /selected add-ons/);
+  assert.throws(() => normalizeCoinRequest({ ...coin, creatorExtras: { ...coin.creatorExtras, websiteUrl: "http://example.com" } }, "750000000"), /valid HTTPS URL/);
+  assert.throws(() => normalizeCoinRequest({ ...coin, creatorExtras: { enabled: true } }, "750000000"), /at least one creator detail/);
 });
