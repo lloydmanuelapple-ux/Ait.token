@@ -144,6 +144,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .authority-warning { margin: 9px 0 0; padding: 9px 10px; border-left: 2px solid var(--yellow); background: rgba(237, 210, 115, .06); color: #c7bd91; font-size: 9px; line-height: 1.5; }
 .form-error { margin-top: 12px; color: var(--red); font-size: 10px; }
 .form-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 19px; padding-top: 14px; border-top: 1px solid var(--line); }
+.static-payment-note { margin: 10px 0 0; color: var(--yellow); font-size: 10px; line-height: 1.5; }
 .save-button, .primary-button { min-height: 36px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 12px; border: 1px solid var(--line); border-radius: 3px; background: transparent; color: var(--muted); font-size: 10px; font-weight: 600; cursor: pointer; transition: background .16s ease, color .16s ease; }
 .save-button:hover { background: var(--surface-raised); color: var(--ink); }
 .primary-button { border-color: rgba(104, 214, 162, .35); background: var(--green-dim); color: var(--green); }

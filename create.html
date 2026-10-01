@@ -15,14 +15,14 @@
   </head>
   <body>
     <header class="topbar">
-      <a class="brand" href="/markets#markets" aria-label="AI.Token markets">
+      <a class="brand" href="./markets.html#markets" aria-label="AI.Token markets">
         <span class="brand-mark" aria-hidden="true">AI</span>
         <span class="brand-name">AI<span>.TOKEN</span></span>
       </a>
       <nav class="top-nav" aria-label="Main navigation">
-        <a class="nav-link" href="/markets#markets">Markets</a>
-        <a class="nav-link" href="/markets#market-chart">Chart</a>
-        <a class="nav-link active" href="/create.html" aria-current="page">Create coin</a>
+        <a class="nav-link" href="./markets.html#markets">Markets</a>
+        <a class="nav-link" href="./markets.html#market-chart">Chart</a>
+        <a class="nav-link active" href="./" aria-current="page">Create coin</a>
       </nav>
       <div class="top-actions">
         <label class="network-picker">
@@ -174,8 +174,9 @@
             <div class="form-error" id="form-error" role="alert" hidden></div>
             <div class="form-actions">
               <button class="save-button" id="save-button" type="button"><span aria-hidden="true">↓</span> Save draft</button>
-              <button class="primary-button" type="submit">Continue to payment <span aria-hidden="true">↗</span></button>
+              <button class="primary-button" id="payment-submit-button" type="submit">Continue to payment <span aria-hidden="true">↗</span></button>
             </div>
+            <p class="static-payment-note" id="static-payment-note" role="status" hidden>Checkout is unavailable on the GitHub Pages preview. Use the live Node-hosted site to submit a paid request.</p>
           </form>
         </section>
 

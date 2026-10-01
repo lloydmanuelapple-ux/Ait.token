@@ -17,3 +17,5 @@ services:
         generateValue: true
       - key: COIN_QUEUE_DATA_DIR
         value: /var/data
+      - key: VITE_PAYMENT_ENABLED
+        value: "true"

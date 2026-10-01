@@ -171,6 +171,7 @@ app.patch("/api/owner/coin-requests/:requestId", requireOwner, async (req, res) 
 if (!apiOnly) {
   app.get("/", (_req, res) => res.sendFile(path.resolve("dist/create.html")));
   app.get("/markets", (_req, res) => res.sendFile(path.resolve("dist/index.html")));
+  app.get("/markets.html", (_req, res) => res.sendFile(path.resolve("dist/index.html")));
   app.use(express.static(path.resolve("dist")));
 }
 

@@ -31,13 +31,28 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
       - name: Setup Pages
         uses: actions/configure-pages@v5
+      - name: Install dependencies
+        run: npm ci
+      - name: Build static preview
+        run: npm run build
+        env:
+          GITHUB_PAGES: "true"
+          VITE_PAYMENT_ENABLED: "false"
+      - name: Make creator the Pages homepage
+        run: cp dist/index.html dist/markets.html && cp dist/create.html dist/index.html
+      - name: Remove backend-only owner queue page
+        run: rm dist/owner.html
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Upload entire repository
-          path: '.'
+          path: dist/
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5

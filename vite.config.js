@@ -5,6 +5,7 @@ import { defineConfig } from "vite";
 const root = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
+  base: process.env.GITHUB_PAGES === "true" ? "/Ait.token/" : "/",
   server: {
     proxy: {
       "/api": { target: "http://127.0.0.1:3001", changeOrigin: true },

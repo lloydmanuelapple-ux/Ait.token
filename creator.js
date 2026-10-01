@@ -3,6 +3,7 @@ import { createSolPaymentInstruction, CREATOR_PROFILE_ADDON_LAMPORTS, COIN_REQUE
 import { normalizeJpegUrl } from "./logo-url.js";
 
 const $ = (selector) => document.querySelector(selector);
+const paymentsEnabled = import.meta.env.VITE_PAYMENT_ENABLED !== "false";
 const form = $("#token-form");
 const nameInput = $("#token-name");
 const symbolInput = $("#token-symbol");
@@ -334,9 +335,11 @@ function updateFeeControls() {
   const provider = getWalletProvider();
   const connected = Boolean(provider?.isPhantom && walletPublicKey);
   const acknowledged = $("#ack-fee-transfer").checked && $("#ack-creator-queue").checked;
-  feePaymentButton.disabled = !reviewedPayment || !connected || !acknowledged || isSubmittingPayment;
+  feePaymentButton.disabled = !paymentsEnabled || !reviewedPayment || !connected || !acknowledged || isSubmittingPayment;
   feePaymentButton.textContent = isSubmittingPayment
     ? "Waiting for Mainnet confirmation…"
+    : !paymentsEnabled
+      ? "Payments unavailable in this preview"
     : !connected
       ? "Connect Phantom to continue"
       : !reviewedPayment
@@ -587,6 +590,10 @@ $("#save-button").addEventListener("click", () => {
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (!paymentsEnabled) {
+    $("#static-payment-note").hidden = false;
+    return;
+  }
   if (validateCoinRequest()) await prepareFeeReview();
 });
 
@@ -615,6 +622,11 @@ loadDraft();
 updatePaymentSummary();
 updatePreview();
 updateWalletControls();
+if (!paymentsEnabled) {
+  $("#payment-submit-button").disabled = true;
+  $("#payment-submit-button").textContent = "Payments unavailable in this preview";
+  $("#static-payment-note").hidden = false;
+}
 updateFeeControls();
 
 const existingReceipt = readReceipt();
