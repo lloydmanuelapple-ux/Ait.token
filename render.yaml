@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: ait-token
+    runtime: node
+    plan: starter
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    disk:
+      name: coin-request-queue
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: AI_TOKEN_OWNER_TOKEN
+        generateValue: true
+      - key: COIN_QUEUE_DATA_DIR
+        value: /var/data

@@ -168,7 +168,11 @@ app.patch("/api/owner/coin-requests/:requestId", requireOwner, async (req, res) 
   }
 });
 
-if (!apiOnly) app.use(express.static(path.resolve("dist")));
+if (!apiOnly) {
+  app.get("/", (_req, res) => res.sendFile(path.resolve("dist/create.html")));
+  app.get("/markets", (_req, res) => res.sendFile(path.resolve("dist/index.html")));
+  app.use(express.static(path.resolve("dist")));
+}
 
 app.listen(port, "0.0.0.0", () => {
   console.log(`AI.Token ${apiOnly ? "queue API" : "server"} listening on port ${port}`);
